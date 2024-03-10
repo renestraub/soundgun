@@ -2822,18 +2822,6 @@
 		(at 68.58 116.84)
 		(uuid "13ee068f-e050-4c58-a3c0-a58e6090a745")
 	)
-	(no_connect
-		(at 172.72 104.14)
-		(uuid "2a03d33a-58c8-45ff-80ce-a295b703f43c")
-	)
-	(no_connect
-		(at 167.64 104.14)
-		(uuid "a8c2b403-c10f-4d69-b5d5-079e77709be5")
-	)
-	(no_connect
-		(at 170.18 104.14)
-		(uuid "d3056cc9-de01-483d-8d99-c5b8ab905b8e")
-	)
 	(wire
 		(pts
 			(xy 53.34 114.3) (xy 49.53 114.3)
@@ -3167,7 +3155,7 @@
 				)
 			)
 		)
-		(property "Footprint" "stx3000:STX-3000_KYC"
+		(property "Footprint" "Connector_stx3000:STX-3000_KYC"
 			(at 57.15 77.47 0)
 			(effects
 				(font
