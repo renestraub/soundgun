@@ -11,7 +11,7 @@ ADC_FREQ = const(48_000_000)
 # Accroding to datasheet of US transmitter the working frequency is 40 kHz
 # Empirical tests have shown best volume and lowest power consumption at 42.0 kHz
 PWM_FREQ = const(42000)
-SAMPLING_FREQ = const(PWM_FREQ)
+SAMPLING_FREQ = const(PWM_FREQ // 2)
 
 
 # ADC Hardware Register
@@ -101,22 +101,22 @@ def setup(pwm_freq, sampling_freq):
     ain = ADC(0)        
 
     # Change settings as needed
-    adc_cs = mem32[ADC_CS_REG]
-    print(f'ADC_CS = {adc_cs:08x}')
 
     # Enable FIFO, 8 bit right aligned, IRQ after one byte
     FIFO_EN = 1 << 0
     FIFO_SHIFT_RIGHT = 0    # 1 << 1
     FIFO_THRESHOLD_ONE_BYTE = 1 << 24
+    adc_cs = mem32[ADC_CS_REG]
+    # print(f'ADC_CS = {adc_cs:08x}')
     mem32[ADC_FCS_REG] = FIFO_EN | FIFO_SHIFT_RIGHT | FIFO_THRESHOLD_ONE_BYTE
-    adc_fcs = mem32[ADC_FCS_REG]
-    print(f'ADC_FCS = {adc_fcs:08x}')
+    # adc_fcs = mem32[ADC_FCS_REG]
+    # print(f'ADC_FCS = {adc_fcs:08x}')
 
     adc_div = int(ADC_FREQ / sampling_freq)
     print(f'ADC clock divider = {adc_div}, 0x{adc_div:x}')
     mem32[ADC_DIV_REG] = (adc_div) << 8
-    adc_div = mem32[ADC_DIV_REG]
-    print(f'ADC_DIV = 0x{adc_div:x}')
+    # adc_div = mem32[ADC_DIV_REG]
+    # print(f'ADC_DIV = 0x{adc_div:x}')
 
     #
     # Setup two PWM Outputs
@@ -135,11 +135,9 @@ def setup(pwm_freq, sampling_freq):
     # print(f'ch7_div = 0x{ch7_div:04x}')
 
     # Invert the B output
-    ch7_csr = mem32[PWM_CH7_CSR_REG] 
-    print(f'ch7_csr = 0x{ch7_csr:04x}')
-    mem32[0x4005008c] = ch7_csr | (1 << 3)
-    ch7_csr = mem32[PWM_CH7_CSR_REG] 
-    print(f'ch7_csr = 0x{ch7_csr:04x}')
+    mem32[PWM_CH7_CSR_REG] |= (1 << 3)
+    # ch7_csr = mem32[PWM_CH7_CSR_REG] 
+    # print(f'ch7_csr = 0x{ch7_csr:04x}')
 
 
 def adc_start():
@@ -148,20 +146,18 @@ def adc_start():
 
     Set START_MANY bit, ADC will provide sample values at 8 kHz rate
     """
-    adc_cs = mem32[ADC_CS_REG]
-    mem32[ADC_CS_REG] = adc_cs | 1 << 3     
-    adc_cs = mem32[ADC_CS_REG]
-    print(f'ADC_CS = {adc_cs:08x}')    
+    mem32[ADC_CS_REG] |= (1 << 3)
+    # adc_cs = mem32[ADC_CS_REG]
+    # print(f'ADC_CS = {adc_cs:08x}')
 
 
 def adc_stop():
     """
     Stops ADC
     """
-    adc_cs = mem32[ADC_CS_REG]
-    mem32[ADC_CS_REG] = adc_cs & ~(1 << 3)
-    adc_cs = mem32[ADC_CS_REG]
-    print(f'ADC_CS = {adc_cs:08x}')    
+    mem32[ADC_CS_REG] &= ~(1 << 3)
+    # adc_cs = mem32[ADC_CS_REG]
+    # print(f'ADC_CS = {adc_cs:08x}')
 
 
 def pwm_stop():
@@ -209,13 +205,11 @@ def sample_audio_input():
     print("checking ADC. sampling for one second. audio source must be started")
 
     sum = 0
-    # values = bytearray()
-    # values.extend(b'\x00' * SAMPLING_FREQ)
 
     adc_start()
+
     low = 65535
     high = 0
-
     t_start = ticks_us()
 
     for pos in range(SAMPLING_FREQ):
@@ -223,7 +217,6 @@ def sample_audio_input():
             pass
 
         val = mem32[ADC_FIFO_REG] # & 0xFF
-        # values[pos] = val
         sum += val
         if val < low:
             low = val
@@ -234,8 +227,6 @@ def sample_audio_input():
 
     adc_stop()
 
-    # low = min(values)
-    # high = max(values)
     avg = int((low + high) / 2)
     print(low, high, avg)
     print(sum/SAMPLING_FREQ)
@@ -251,10 +242,7 @@ def play_samples(samples):
     step = 0
     count = len(samples) - 1
 
-    adc_cs = mem32[ADC_CS_REG]
-    mem32[ADC_CS_REG] = adc_cs | 1 << 3     # START_MANY
-    adc_cs = mem32[ADC_CS_REG]
-    print(f'ADC_CS = {adc_cs:08x}')
+    adc_start()
 
     while True:
         # Wait for new ADC value to get timing right
@@ -275,6 +263,13 @@ def play_samples(samples):
 
 
 def playback() -> None:
+    """
+    Plays audio as sampled from analog input on ultrasonic speakers.
+    
+    Uses ADC unit as loop timer. Whenever an ADC sample is available, the PWM duty
+    cycle is immediately updated. This modulates the audio signal on the 40 kHz
+    carrier required by the US speaker.
+    """
     global led
 
     gc.collect()
@@ -304,7 +299,7 @@ def playback() -> None:
 
 def playback2(duration: int = 1000) -> None:
     """
-    Performance optimized version that used pre-compiled code
+    Performance optimized version of playback() that used pre-compiled code.
     """
     gc.collect()
     adc_start()
@@ -312,7 +307,7 @@ def playback2(duration: int = 1000) -> None:
     # Repeatedly call the optimized playback function. The loop
     # gives the interpreter a chance to break into our code.
     # while True:
-    for _ in range(duration * 8):
+    for _ in range(duration * 4):
         playback_fast()
 
 
@@ -328,7 +323,7 @@ def playback_fast():
     pwm_reg_value = (pwm) | (pwm << 16)
 
     # Can't loop forever, as Python can't stop us otherwise
-    for _ in range(SAMPLING_FREQ // 8):
+    for _ in range(SAMPLING_FREQ // 4):
         led.off()
         # Wait for new ADC value. This will generate our timing of the loop
         while adc_intr[0] & 0x1 == 0:
