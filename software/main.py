@@ -308,6 +308,7 @@ def playback2(duration: int = 1000) -> None:
     # gives the interpreter a chance to break into our code.
     # while True:
     for _ in range(duration * 4):
+        led.toggle()
         playback_fast()
 
 
@@ -324,14 +325,15 @@ def playback_fast():
 
     # Can't loop forever, as Python can't stop us otherwise
     for _ in range(SAMPLING_FREQ // 4):
-        led.off()
+        # led.off()
+
         # Wait for new ADC value. This will generate our timing of the loop
         while adc_intr[0] & 0x1 == 0:
             pass
 
         # Write next value to PWM controller as fast as possible
         pwm_cc[0] = pwm_reg_value
-        led.on()
+        # led.on()
 
         val = adc_fifo[0] - AIN_CENTER
         pwm = PWM_CENTER_VALUE + val # * 2 // 3
@@ -349,12 +351,13 @@ def test_led():
 
 
 def test_sinewave():
-    sinewave = get_sinewave(400)
+    sinewave = get_sinewave(420)
     print(sinewave)
     play_samples(sinewave)
 
 
 if __name__ == '__main__':
+    print("setting up system")
     setup(PWM_FREQ, SAMPLING_FREQ)
 
     try:
@@ -365,6 +368,7 @@ if __name__ == '__main__':
         # playback()
         playback2()
     except KeyboardInterrupt:
-        pass
+        print("user stop received")
     finally:
+        print("stopping output")
         pwm_stop()
